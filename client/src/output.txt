@@ -1,0 +1,365 @@
+﻿=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\components\PostItem.jsx
+
+import React, { useCallback } from "react";
+import { useDispatch } from "react-redux";
+import { incrementLikes } from "../features/posts/postsSlice";
+
+// eslint-disable-next-line react/display-name
+const PostItem = React.memo(
+  ({ post }) => {
+    const dispatch = useDispatch();
+
+    const handleLikeClick = useCallback(() => {
+      dispatch(incrementLikes(post.id));
+    }, [dispatch, post.id]);
+
+    return (
+      <div className="w-96 rounded overflow-hidden shadow-lg bg-white hover:shadow-xl transition duration-300 mb-8">
+        <img
+          className="w-full h-56 object-cover object-center"
+          src={post.image}
+          alt={post.title}
+        />
+        <div className="px-6 py-4">
+          <h2 className="font-bold text-xl mb-2">{post.title}</h2>
+          <div className="flex items-center mb-4">
+            <p className="text-gray-700 text-sm mr-2">{post.likes} Likes</p>
+            <button
+              onClick={handleLikeClick}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+              Like
+            </button>
+          </div>
+          <p className="text-gray-600 text-base">{post.description}</p>
+        </div>
+      </div>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Memoization based on relevant properties (e.g., post.id and post.likes)
+    return (
+      prevProps.post.id === nextProps.post.id &&
+      prevProps.post.likes === nextProps.post.likes
+    );
+  }
+);
+
+export default PostItem;
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\components\PostList.jsx
+
+import { useState, useEffect, useCallback } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import PostItem from "./PostItem";
+import SortButton from "./SortButton";
+import SearchBar from "./SearchBar";
+import {
+  fetchPosts,
+  sortByDate,
+  searchPosts,
+} from "../features/posts/postsSlice";
+
+const PostList = () => {
+  const dispatch = useDispatch();
+  const posts = useSelector((state) => state.posts.data);
+  const status = useSelector((state) => state.posts.status);
+  const error = useSelector((state) => state.posts.error);
+
+  const [sortOrder, setSortOrder] = useState("newer");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    if (status === "idle") {
+      dispatch(fetchPosts());
+    }
+  }, [dispatch, status]);
+
+  useEffect(() => {
+    // Only dispatch searchPosts if searchTerm is non-empty
+    if (searchTerm !== "") {
+      dispatch(searchPosts(searchTerm));
+    } else {
+      // If searchTerm is empty, refetch all posts
+      dispatch(fetchPosts());
+    }
+  }, [dispatch, searchTerm]);
+
+  // const handleSortChange = (order) => {
+  //   setSortOrder(order);
+  //   dispatch(sortByDate(order));
+  // };
+
+  // const handleSearchChange = (term) => {
+  //   setSearchTerm(term);
+  // };
+  const handleSortChange = useCallback(
+    (order) => {
+      setSortOrder(order);
+      dispatch(sortByDate(order));
+    },
+    [dispatch]
+  );
+
+  const handleSearchChange = useCallback((term) => {
+    setSearchTerm(term);
+  }, []);
+  if (status === "loading") {
+    return <p>Loading...</p>;
+  }
+
+  if (status === "failed") {
+    return <p>Error: {error}</p>;
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <SearchBar searchTerm={searchTerm} onChange={handleSearchChange} />
+      <SortButton sortOrder={sortOrder} onChange={handleSortChange} />
+
+      <div className="flex flex-wrap gap-8 -mx-2">
+        {posts && posts.length > 0 ? (
+          posts.map((post) => <PostItem key={post.id} post={post} />)
+        ) : (
+          <p>No posts found.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PostList;
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\components\PostListContainer.jsx
+
+import PostList from "./PostList";
+
+const PostListContainer = () => {
+  return <PostList />;
+};
+
+export default PostListContainer;
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\components\SearchBar.jsx
+
+const SearchBar = ({ searchTerm, onChange }) => {
+  return (
+    <div className="mb-4">
+      <label className="block text-gray-700 text-sm font-bold mb-2">
+        Search:{" "}
+      </label>
+      <input
+        type="text"
+        value={searchTerm}
+        onChange={(e) => onChange(e.target.value)}
+        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+      />
+    </div>
+  );
+};
+
+export default SearchBar;
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\components\SortButton.jsx
+
+const SortButton = ({ sortOrder, onChange }) => {
+  return (
+    <div className="mb-4">
+      <label className="block text-gray-700 text-sm font-bold mb-2">
+        Sort by:{" "}
+      </label>
+      <select
+        value={sortOrder}
+        onChange={(e) => onChange(e.target.value)}
+        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+      >
+        <option value="newer">Newer First</option>
+        <option value="older">Older First</option>
+      </select>
+    </div>
+  );
+};
+
+export default SortButton;
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\features\posts\postsAPI.js
+
+import axios from "axios";
+
+const baseURL = "http://localhost:5000/api/posts";
+
+const getAllPosts = async () => {
+  const response = await axios.get(baseURL);
+  return response.data;
+};
+
+const incrementLikes = async (postId) => {
+  const response = await axios.put(`${baseURL}/${postId}/like`);
+  return response.data;
+};
+
+export default {
+  getAllPosts,
+  incrementLikes,
+};
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\features\posts\postsSlice.js
+
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import postsAPI from "./postsApi";
+
+const fetchPosts = createAsyncThunk("posts/fetchPosts", async () => {
+  const response = await postsAPI.getAllPosts();
+  return response;
+});
+
+const incrementLikes = createAsyncThunk(
+  "posts/incrementLikes",
+  async (postId) => {
+    const response = await postsAPI.incrementLikes(postId);
+    return response;
+  }
+);
+
+const postsSlice = createSlice({
+  name: "posts",
+  initialState: { data: [], status: "idle", error: null },
+  reducers: {
+    sortByDate: (state, action) => {
+      const order = action.payload;
+      state.data.sort((a, b) =>
+        order === "newer" ? b.id - a.id : a.id - b.id
+      );
+    },
+    searchPosts: (state, action) => {
+      const searchTerm = action.payload.toLowerCase();
+      state.data = state.data.filter((post) =>
+        post.title.toLowerCase().includes(searchTerm)
+      );
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchPosts.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(fetchPosts.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.data = action.payload;
+      })
+      .addCase(fetchPosts.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.error.message;
+      })
+      .addCase(incrementLikes.pending, (state) => {
+        // Handle loading state for incrementLikes if needed.
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(incrementLikes.fulfilled, (state, action) => {
+        const updatedPost = action.payload; // Assuming the API returns the updated post with the new like count
+        const index = state.data.findIndex(
+          (post) => post.id === updatedPost.id
+        );
+
+        if (index !== -1) {
+          // If the post is found in the array, update only that post's like count
+          state.data[index].likes = updatedPost.likes;
+        }
+
+        state.status = "succeeded";
+      })
+      .addCase(incrementLikes.rejected, (state, action) => {
+        // Handle error state for incrementLikes if needed.
+        state.status = "failed";
+        state.error = action.error.message;
+      });
+  },
+});
+
+export const { sortByDate, searchPosts } = postsSlice.actions;
+
+export { fetchPosts, incrementLikes }; // Exporting thunks for external use
+
+export default postsSlice.reducer;
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\App.css
+
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\App.jsx
+
+import PostListContainer from "./components/PostListContainer";
+
+function App() {
+  return (
+    <div className="container mx-auto">
+      <h1 className="text-2xl font-bold">Social Media Platform</h1>
+      <PostListContainer />
+    </div>
+  );
+}
+
+export default App;
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\index.css
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-100 font-sans;
+}
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\main.jsx
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.jsx";
+import "./index.css";
+import { store } from "./store";
+import { Provider } from "react-redux";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <Provider store={store}>
+      <App />
+    </Provider>
+  </React.StrictMode>
+);
+
+
+=======================================================================
+C:\Users\Ajmal Shaikh Mushtaq\Desktop\all assignments\social-post\client\src\store.js
+
+import { configureStore } from "@reduxjs/toolkit";
+import postsReducer from "./features/posts/postsSlice";
+
+export const store = configureStore({
+  reducer: {
+    posts: postsReducer,
+  },
+});
+
+
